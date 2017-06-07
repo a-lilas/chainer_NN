@@ -8,7 +8,7 @@
     * matplotlib
 * opencv3  
     以下のコマンドを実行してインストール  
-    ```<envname>``` にはインストールする仮想環境名を入れる
+    ```<envname>``` にはインストールする仮想環境名を入れる  
     ```
     conda install -n <envname> --channel https://conda.anaconda.org/menpo opencv3
     ```
@@ -17,7 +17,7 @@
     import cv2
     cv2.__version__
     ```
-* chainer
+* chainer  
     仮想環境内で以下のコマンドを実行してインストール
     ```
     pip install chainer
