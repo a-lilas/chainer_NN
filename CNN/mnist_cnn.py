@@ -17,9 +17,9 @@ class CNN(Chain):
     # http://qiita.com/To_Murakami/items/35d1b3144a0d017ad0ee
     # http://qiita.com/qooa/items/b671e12ac8302fe977d3
     def __init__(self):
-        super(MLP, self).__init__(
-            conv1=F.Convolution2D(1, 32, 5, stride=1, pad=2),
-            conv2=F.Convolution2D(32, 64, 5, stride=1, pad=2),
+        super(CNN, self).__init__(
+            conv1=L.Convolution2D(1, 32, 5, stride=1, pad=2),
+            conv2=L.Convolution2D(32, 64, 5, stride=1, pad=2),
             l3=L.Linear(7*7*64, 1024),
             l4=L.Linear(1024, 10)
             )
@@ -32,24 +32,33 @@ class CNN(Chain):
         h = F.max_pooling_2d(F.relu(self.conv2(h)), 2)
         h = F.relu(self.l3(h))
         # ドロップアウト, ratio: 割合,train: 学習時のみドロップアウトする
-        h = F.dropout(h, ratio=0.5, train=train)
-        y = F.self.l4(h)
+        # 引数trainはver.2以降，サポートされなくなった
+        h = F.dropout(h, ratio=0.5)
+        y = self.l4(h)
 
         return y
 
 
 if __name__ == '__main__':
-    # For visualize
-    fig = plt.figure()
-    ims = []
-    loss_plt = []
-    epoch_plt = []
-
     # Training Data
-    # 多分最初からVariableになってる
     train, test = chainer.datasets.get_mnist()
     x_train, t_train = train._datasets
     x_test, t_test = test._datasets
+
+    # 学習データ数
+    train_size = len(x_train)
+    # 教師データ数
+    test_size = len(x_test)
+    # エポック数
+    epoch_n = 20
+    # バッチサイズ
+    batch_size = 100
+
+    # 2次元配列を4次元配列に変換(枚数とチャンネル数を追加)
+    x_train = np.asarray(np.reshape(x_train, (train_size, 1, 28, 28)))
+    x_train = x_train.astype(np.float32)
+    x_test = np.asarray(np.reshape(x_test, (test_size, 1, 28, 28)))
+    x_test = x_test.astype(np.float32)
 
     # model ,optimizer
     model = CNN()
@@ -57,50 +66,63 @@ if __name__ == '__main__':
     optimizer.setup(model)
 
     # Training Loop
-    # 誤差 初期値
-    loss_val = 100
-    # エポック数
-    epoch_n = 20
+    for epoch in range(0, epoch_n):
+        # 誤差 初期値
+        loss_val = 0
+        # バッチのシャッフル
+        perm = np.random.permutation(train_size)
 
-    for epoch in range(epoch_n):
-        # x: データ, t: 教師
-        # 勾配のゼロ初期化
-        model.zerograds()
-        # y: 予測(学習)
-        y = model(x)
-        # 損失関数(ソフトマックス->交差エントロピー)
-        loss = F.softmax_cross_entropy(y, t)
-        # 精度
-        accuracy = F.accuracy(y, t)
-        # 誤差逆伝搬
-        loss.backward()
-        # 最適化
-        optimizer.update()
+        for i in range(0, train_size, batch_size):
+            # x: データ, t: 教師
+            # バッチ作成
+            if (i+batch_size) < train_size:
+                x = Variable(x_train[perm[i:(i+batch_size)]])
+                t = Variable(t_train[perm[i:(i+batch_size)]])
+            else:
+                # インデックスが要素数をオーバーした場合の処理
+                x = Variable(x_train[perm[i:train_size]])
+                t = Variable(t_train[perm[i:train_size]])
 
-        if epoch % 1000 == 0:
+            # 勾配のゼロ初期化
+            model.zerograds()
+            # y: 予測(学習)
+            y = model(x)
+            # 損失関数(ソフトマックス->交差エントロピー)
+            loss = F.softmax_cross_entropy(y, t)
+            # 誤差逆伝搬
+            loss.backward()
             # 誤差と正解率を計算
             # 出力時は，".data"を参照
-            # エポック数
-            loss_val = loss.data
-            print('epoch:', epoch)
-            # 訓練誤差, 正解率
-            print('train mean loss = {}'.format(loss_val))
-            print(' - - - - - - - - - ')
+            loss_val += loss.data * batch_size
+            # 最適化
+            optimizer.update()
 
-            # For visualization
-            loss_plt.append(loss_val)
-            epoch_plt.append(epoch)
-            # 複数グラフのアニメーションを行う場合は，imリストにプロットオブジェクトを格納する
-            im = ax1.plot(x_test.data, y_test.data, color='red')
-            # リストへの追加
-            im += ax2.plot(epoch_plt, loss_plt, color='blue')
-            ims.append(im)
+        print('epoch:', epoch)
+        # 訓練誤差, 正解率
+        print('softmax cross entropy = {}'.format(loss_val))
+        print(' - - - - - - - - - ')
 
-        # n_epoch以上になると終了
-        if epoch >= 25000:
-            break
-        epoch += 1
+    # Test Loop
+    # x: データ, t: 教師
+    # バッチ作成
+    x = Variable(x_test)
+    t = Variable(t_test)
+    # 勾配のゼロ初期化
+    model.zerograds()
+    # y: 予測(学習)
+    y = model(x)
+    # 損失関数(ソフトマックス->交差エントロピー)
+    loss = F.softmax_cross_entropy(y, t)
+    # 精度
+    accuracy = F.accuracy(y, t)
+    # 誤差逆伝搬
+    loss.backward()
+    # 誤差と正解率を計算
+    # 出力時は，".data"を参照
+    loss_val += loss.data * batch_size
+    # 最適化
+    optimizer.update()
 
-    ani = animation.ArtistAnimation(fig, ims, interval=300)
-    ani.save('perceptron.mp4', writer='ffmpeg')
-    plt.show()
+    print('--- Test ---')
+    print('accuracy: %f' % accuracy)
+    print('loss_val: %f' % loss_val)
