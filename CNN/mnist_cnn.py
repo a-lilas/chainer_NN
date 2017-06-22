@@ -50,7 +50,7 @@ if __name__ == '__main__':
     # 教師データ数
     test_size = len(x_test)
     # エポック数
-    epoch_n = 20
+    epoch_n = 3
     # バッチサイズ
     batch_size = 100
 
@@ -68,10 +68,13 @@ if __name__ == '__main__':
     # Training Loop
     for epoch in range(0, epoch_n):
         # 誤差 初期値
-        loss_val = 0
+        loss_sum = 0
+        # 精度
+        acc_sum = 0
         # バッチのシャッフル
         perm = np.random.permutation(train_size)
 
+        # バッチ単位での学習
         for i in range(0, train_size, batch_size):
             # x: データ, t: 教師
             # バッチ作成
@@ -93,36 +96,31 @@ if __name__ == '__main__':
             loss.backward()
             # 誤差と正解率を計算
             # 出力時は，".data"を参照
-            loss_val += loss.data * batch_size
+            loss_sum += loss.data * batch_size
             # 最適化
             optimizer.update()
 
-        print('epoch:', epoch)
+        # バッチ単位でのテスト
+        # エポックごとにテストデータを用いて評価を行う(もちろん誤差逆伝播は行わない)
+        for i in range(0, test_size, batch_size):
+            # x: データ, t: 教師
+            # バッチ作成
+            if (i+batch_size) < train_size:
+                x = Variable(x_test[i:(i+batch_size)])
+                t = Variable(t_test[i:(i+batch_size)])
+            else:
+                # インデックスが要素数をオーバーした場合の処理
+                x = Variable(x_test[i:test_size])
+                t = Variable(t_test[i:test_size])
+
+            # y: 予測(学習)
+            y = model(x)
+            # 精度を計算
+            acc = F.accuracy(y, t)
+            acc_sum += float(acc.data) * len(y)
+
+        print('epoch: {}'.format(epoch))
         # 訓練誤差, 正解率
-        print('softmax cross entropy = {}'.format(loss_val))
+        print('softmax cross entropy = {}'.format(loss_sum / train_size))
+        print('accuracy: {}'.format(acc_sum / test_size))
         print(' - - - - - - - - - ')
-
-    # Test Loop
-    # x: データ, t: 教師
-    # バッチ作成
-    x = Variable(x_test)
-    t = Variable(t_test)
-    # 勾配のゼロ初期化
-    model.zerograds()
-    # y: 予測(学習)
-    y = model(x)
-    # 損失関数(ソフトマックス->交差エントロピー)
-    loss = F.softmax_cross_entropy(y, t)
-    # 精度
-    accuracy = F.accuracy(y, t)
-    # 誤差逆伝搬
-    loss.backward()
-    # 誤差と正解率を計算
-    # 出力時は，".data"を参照
-    loss_val += loss.data * batch_size
-    # 最適化
-    optimizer.update()
-
-    print('--- Test ---')
-    print('accuracy: %f' % accuracy)
-    print('loss_val: %f' % loss_val)

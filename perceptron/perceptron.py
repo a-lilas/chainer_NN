@@ -5,6 +5,7 @@
 '''
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import chainer
 from chainer import cuda
 from chainer import Function, Variable, optimizers
@@ -17,10 +18,10 @@ units_cnt1 = 3
 units_cnt2 = 5
 
 
-class Model(Chain):
+class MLP(Chain):
     # 多層パーセプトロンモデル
     def __init__(self):
-        super(Model, self).__init__(
+        super(MLP, self).__init__(
             l1=L.Linear(1, units_cnt1),
             l2=L.Linear(units_cnt1, units_cnt2),
             l3=L.Linear(units_cnt2, 1)
@@ -31,6 +32,7 @@ class Model(Chain):
         h1 = F.tanh(self.l1(x))
         h2 = F.tanh(self.l2(h1))
         y = self.l3(h2)
+
         return y
 
 
@@ -44,24 +46,34 @@ def makeData(n):
     x = np.reshape(x, (-1, 1))
     # 任意の関数(教師データ)
     y = np.sin(2*x) + np.cos(x) + noize
+    # 学習データプロット
+    ax1.scatter(x, y, color='green')
 
     # 正解データ
     x_ans = np.arange(0, 10, 0.01)
     y_ans = np.sin(2*x_ans) + np.cos(x_ans)
 
-    plt.plot(x_ans, y_ans, color='blue')
-    plt.xlim((0, 10))
-    plt.ylim((-2, 2))
+    ax1.plot(x_ans, y_ans, color='blue')
+    ax1.set_xlim((0, 10))
+    ax1.set_ylim((-2, 2))
 
     return x, y
 
 
 if __name__ == '__main__':
-    # Training Data
-    data_x, data_t = makeData(50)
-    plt.scatter(data_x, data_t, color='green')
+    # For visualize
+    fig = plt.figure()
+    ax1 = plt.subplot(2, 1, 1)
+    ax2 = plt.subplot(2, 1, 2)
+    ims = []
+    loss_plt = []
+    epoch_plt = []
 
-    model = Model()
+    # Training Data
+    n = 100
+    data_x, data_t = makeData(n=n)
+
+    model = MLP()
     optimizer = optimizers.Adam()
     optimizer.setup(model)
 
@@ -70,6 +82,11 @@ if __name__ == '__main__':
     loss_val = 100
     # エポック数
     epoch = 0
+
+    # Test Data
+    x_test = np.arange(0, 10, 0.01)
+    x_test = np.reshape(x_test, (-1, 1))
+    x_test = chainer.Variable(np.asarray(x_test).astype(np.float32))
 
     while loss_val > 0.05:
         # x: データ, t: 教師
@@ -93,24 +110,30 @@ if __name__ == '__main__':
         if epoch % 1000 == 0:
             # 誤差と正解率を計算
             # 出力時は，".data"を参照
+            # エポック数
             loss_val = loss.data
             print('epoch:', epoch)
-            # print('x:\n', x.data)
-            # print('t:\n', t.data)
-            # print('y:\n', y.data)
             # 訓練誤差, 正解率
-            print('train mean loss={}'.format(loss_val))
+            print('train mean loss = {}'.format(loss_val))
             print(' - - - - - - - - - ')
+
+            # 現在のエポック数におけるテストプロット
+            y_test = model(x_test)
+
+            # For visualization
+            loss_plt.append(loss_val)
+            epoch_plt.append(epoch)
+            # 複数グラフのアニメーションを行う場合は，imリストにプロットオブジェクトを格納する
+            im = ax1.plot(x_test.data, y_test.data, color='red')
+            # リストへの追加
+            im += ax2.plot(epoch_plt, loss_plt, color='blue')
+            ims.append(im)
+
         # n_epoch以上になると終了
         if epoch >= 25000:
             break
         epoch += 1
 
-    # テストデータ
-    x_test = np.arange(0, 10, 0.01)
-    x_test = np.reshape(x_test, (-1, 1))
-    x_test = chainer.Variable(np.asarray(x_test).astype(np.float32))
-    y_test = model(x_test)
-
-    plt.plot(x_test.data, y_test.data, color='red')
+    ani = animation.ArtistAnimation(fig, ims, interval=300)
+    ani.save('perceptron.mp4', writer='ffmpeg')
     plt.show()
