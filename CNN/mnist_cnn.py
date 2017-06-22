@@ -4,6 +4,7 @@ CNNを用いたMNIST手書き文字識別
 '''
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 import chainer
 from chainer import cuda
 from chainer import Function, Variable, optimizers
@@ -31,7 +32,7 @@ class CNN(Chain):
         h = F.max_pooling_2d(F.relu(self.conv1(x)), 2)
         h = F.max_pooling_2d(F.relu(self.conv2(h)), 2)
         h = F.relu(self.l3(h))
-        # ドロップアウト, ratio: 割合,train: 学習時のみドロップアウトする
+        # ドロップアウト, ratio: 割合
         # 引数trainはver.2以降，サポートされなくなった
         h = F.dropout(h, ratio=0.5)
         y = self.l4(h)
@@ -47,10 +48,10 @@ if __name__ == '__main__':
 
     # 学習データ数
     train_size = len(x_train)
-    # 教師データ数
+    # テストデータ数
     test_size = len(x_test)
     # エポック数
-    epoch_n = 3
+    epoch_n = 20
     # バッチサイズ
     batch_size = 100
 
@@ -67,11 +68,14 @@ if __name__ == '__main__':
 
     # Training Loop
     for epoch in range(0, epoch_n):
+        # time per epoch
+        start_time = time.time()
+
         # 誤差 初期値
         loss_sum = 0
         # 精度
         acc_sum = 0
-        # バッチのシャッフル
+        # 学習時のバッチのシャッフル
         perm = np.random.permutation(train_size)
 
         # バッチ単位での学習
@@ -94,7 +98,7 @@ if __name__ == '__main__':
             loss = F.softmax_cross_entropy(y, t)
             # 誤差逆伝搬
             loss.backward()
-            # 誤差と正解率を計算
+            # 損失関数を計算
             # 出力時は，".data"を参照
             loss_sum += loss.data * batch_size
             # 最適化
@@ -120,7 +124,8 @@ if __name__ == '__main__':
             acc_sum += float(acc.data) * len(y)
 
         print('epoch: {}'.format(epoch))
-        # 訓練誤差, 正解率
-        print('softmax cross entropy = {}'.format(loss_sum / train_size))
+        # 訓練誤差, 正解率, 学習時間
+        print('softmax cross entropy: {}'.format(loss_sum / train_size))
         print('accuracy: {}'.format(acc_sum / test_size))
+        print('time per epoch: {} [sec]'.format(time.time() - start_time))
         print(' - - - - - - - - - ')
