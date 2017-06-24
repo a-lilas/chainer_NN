@@ -19,7 +19,6 @@ def gpuCheck(argv):
     # GPU フラグのチェック
     if len(argv) != 2:
         print('Error. "python mnist_cnn.py [-cpu] or [-gpu]')
-        print(argv)
         exit()
     if argv[1] == '-gpu':
         return 0
@@ -50,8 +49,9 @@ class CNN(Chain):
         h = F.max_pooling_2d(F.relu(self.conv2(h)), 2)
         h = F.relu(self.l3(h))
         # ドロップアウト, ratio: 割合
-        # 引数trainはver.2以降，サポートされなくなった
-        h = F.dropout(h, ratio=0.5)
+        # 引数trainはver.2以降，サポートされなくなった?
+        if train:
+            h = F.dropout(h, ratio=0.5)
         y = self.l4(h)
 
         return y
@@ -68,7 +68,6 @@ if __name__ == '__main__':
     train, test = chainer.datasets.get_mnist()
     x_train, t_train = train._datasets
     x_test, t_test = test._datasets
-
     # 学習データ数
     train_size = len(x_train)
     # テストデータ数
@@ -78,18 +77,21 @@ if __name__ == '__main__':
     # バッチサイズ
     batch_size = 100
 
-    # 2次元配列を4次元配列に変換(枚数とチャンネル数を追加)
-    x_train = xp.asarray(xp.reshape(x_train, (train_size, 1, 28, 28)))
-    x_train = x_train.astype(xp.float32)
-    x_test = xp.asarray(xp.reshape(x_test, (test_size, 1, 28, 28)))
-    x_test = x_test.astype(xp.float32)
-
     # model
     model = CNN()
     # to GPU
     if gpu_fg >= 0:
         cuda.get_device(gpu_fg).use()
         model.to_gpu()
+
+    # 2次元配列を4次元配列に変換(枚数とチャンネル数を追加)
+    x_train = xp.asarray(xp.reshape(x_train, (train_size, 1, 28, 28)))
+    x_train = x_train.astype(xp.float32)
+    x_test = xp.asarray(xp.reshape(x_test, (test_size, 1, 28, 28)))
+    x_test = x_test.astype(xp.float32)
+    # xpを用いてクラスを各タイプに変換
+    t_train = xp.asarray(t_train)
+    t_test = xp.asarray(t_test)
 
     # optimizer
     optimizer = optimizers.Adam()
@@ -105,7 +107,7 @@ if __name__ == '__main__':
         # 精度
         acc_sum = 0
         # 学習時のバッチのシャッフル(only np)
-        perm = xp.asarray(np.random.permutation(train_size))
+        perm = np.random.permutation(train_size)
 
         # バッチ単位での学習
         for i in range(0, train_size, batch_size):
@@ -137,7 +139,7 @@ if __name__ == '__main__':
             x = Variable(x_test[i:(i+batch_size) if (i+batch_size) < test_size else test_size])
             t = Variable(t_test[i:(i+batch_size) if (i+batch_size) < test_size else test_size])
             # y: 予測(学習)
-            y = model(x)
+            y = model(x, train=False)
             # 精度を計算
             acc = F.accuracy(y, t)
             acc_sum += float(acc.data) * len(y)
