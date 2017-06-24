@@ -17,8 +17,9 @@ import chainer.links as L
 
 def gpuCheck(argv):
     # GPU フラグのチェック
-    if len(argv) != 1:
+    if len(argv) != 2:
         print('Error. "python mnist_cnn.py [-cpu] or [-gpu]')
+        print(argv)
         exit()
     if argv[1] == '-gpu':
         return 0
