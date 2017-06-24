@@ -131,7 +131,7 @@ if __name__ == '__main__':
         # 精度
         acc_sum = 0
         # 学習時のバッチのシャッフル
-        perm = xp.random.permutation(train_size)
+        perm = np.random.permutation(train_size)
 
         # バッチ単位での学習
         for i in range(0, train_size, batch_size):
