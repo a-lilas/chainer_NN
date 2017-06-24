@@ -3,13 +3,29 @@
 CNNを用いたMNIST手書き文字識別
 '''
 import numpy as np
+import sys
 import matplotlib.pyplot as plt
+import _pickle
 import chainer
 from chainer import cuda
 from chainer import Function, Variable, optimizers
 from chainer import Link, Chain, ChainList
 import chainer.functions as F
 import chainer.links as L
+
+
+def gpuCheck(argv):
+    # GPU フラグのチェック
+    if len(argv) != 1:
+        print('Error. "python mnist_cnn.py [-cpu] or [-gpu]')
+        exit()
+    if argv[1] == '-gpu':
+        return 0
+    elif argv[1] == '-cpu':
+        return -1
+    else:
+        print('Error. "python mnist_cnn.py [-cpu] or [-gpu]')
+        exit()
 
 
 class CNN(Chain):
@@ -40,6 +56,12 @@ class CNN(Chain):
 
 
 if __name__ == '__main__':
+    # GPUフラグ
+    gpu_fg = gpuCheck(sys.argv)
+    if gpu_fg >= 0:
+        cuda.check_cuda_available()
+    xp = cuda.cupy if gpu_fg >= 0 else np
+
     # Training Data
     train, test = chainer.datasets.get_mnist()
     x_train, t_train = train._datasets
@@ -50,18 +72,24 @@ if __name__ == '__main__':
     # 教師データ数
     test_size = len(x_test)
     # エポック数
-    epoch_n = 3
+    epoch_n = 15
     # バッチサイズ
     batch_size = 100
 
     # 2次元配列を4次元配列に変換(枚数とチャンネル数を追加)
-    x_train = np.asarray(np.reshape(x_train, (train_size, 1, 28, 28)))
-    x_train = x_train.astype(np.float32)
-    x_test = np.asarray(np.reshape(x_test, (test_size, 1, 28, 28)))
-    x_test = x_test.astype(np.float32)
+    x_train = xp.asarray(xp.reshape(x_train, (train_size, 1, 28, 28)))
+    x_train = x_train.astype(xp.float32)
+    x_test = xp.asarray(xp.reshape(x_test, (test_size, 1, 28, 28)))
+    x_test = x_test.astype(xp.float32)
 
-    # model ,optimizer
+    # model
     model = CNN()
+    # to GPU
+    if gpu_fg >= 0:
+        cuda.get_device(gpu_fg).use()
+        model.to_gpu()
+
+    # optimizer
     optimizer = optimizers.Adam()
     optimizer.setup(model)
 
@@ -72,20 +100,15 @@ if __name__ == '__main__':
         # 精度
         acc_sum = 0
         # バッチのシャッフル
-        perm = np.random.permutation(train_size)
+        perm = xp.random.permutation(train_size)
 
         # バッチ単位での学習
         for i in range(0, train_size, batch_size):
             # x: データ, t: 教師
             # バッチ作成
-            if (i+batch_size) < train_size:
-                x = Variable(x_train[perm[i:(i+batch_size)]])
-                t = Variable(t_train[perm[i:(i+batch_size)]])
-            else:
-                # インデックスが要素数をオーバーした場合の処理
-                x = Variable(x_train[perm[i:train_size]])
-                t = Variable(t_train[perm[i:train_size]])
-
+            # インデックスが要素数をオーバーした場合の処理
+            x = Variable(x_train[perm[i:(i+batch_size) if (i+batch_size) < train_size else train_size]])
+            t = Variable(t_train[perm[i:(i+batch_size) if (i+batch_size) < train_size else train_size]])
             # 勾配のゼロ初期化
             model.zerograds()
             # y: 予測(学習)
@@ -105,14 +128,9 @@ if __name__ == '__main__':
         for i in range(0, test_size, batch_size):
             # x: データ, t: 教師
             # バッチ作成
-            if (i+batch_size) < train_size:
-                x = Variable(x_test[i:(i+batch_size)])
-                t = Variable(t_test[i:(i+batch_size)])
-            else:
-                # インデックスが要素数をオーバーした場合の処理
-                x = Variable(x_test[i:test_size])
-                t = Variable(t_test[i:test_size])
-
+            # インデックスが要素数をオーバーした場合の処理
+            x = Variable(x_test[i:(i+batch_size) if (i+batch_size) < test_size else test_size])
+            t = Variable(t_test[i:(i+batch_size) if (i+batch_size) < test_size else test_size])
             # y: 予測(学習)
             y = model(x)
             # 精度を計算
@@ -124,3 +142,7 @@ if __name__ == '__main__':
         print('softmax cross entropy = {}'.format(loss_sum / train_size))
         print('accuracy: {}'.format(acc_sum / test_size))
         print(' - - - - - - - - - ')
+
+    # save the model (dump)
+    model.to_cpu()
+    _pickle.dump(model, open("model.pkl", "wb"), -1)
