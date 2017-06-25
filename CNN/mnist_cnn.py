@@ -13,20 +13,7 @@ from chainer import Function, Variable, optimizers
 from chainer import Link, Chain, ChainList
 import chainer.functions as F
 import chainer.links as L
-
-
-def gpuCheck(argv):
-    # GPU フラグのチェック
-    if len(argv) != 2:
-        print('Error. "python mnist_cnn.py [-cpu] or [-gpu]')
-        exit()
-    if argv[1] == '-gpu':
-        return 0
-    elif argv[1] == '-cpu':
-        return -1
-    else:
-        print('Error. "python mnist_cnn.py [-cpu] or [-gpu]')
-        exit()
+import util
 
 
 class CNN(Chain):
@@ -50,8 +37,7 @@ class CNN(Chain):
         h = F.relu(self.l3(h))
         # ドロップアウト, ratio: 割合
         # 引数trainはver.2以降，サポートされなくなった?
-        if train:
-            h = F.dropout(h, ratio=0.5)
+        h = F.dropout(h, ratio=0.5)
         y = self.l4(h)
 
         return y
@@ -59,7 +45,7 @@ class CNN(Chain):
 
 if __name__ == '__main__':
     # GPUフラグ
-    gpu_fg = gpuCheck(sys.argv)
+    gpu_fg = util.gpuCheck(sys.argv)
     if gpu_fg >= 0:
         cuda.check_cuda_available()
     xp = cuda.cupy if gpu_fg >= 0 else np
@@ -101,7 +87,6 @@ if __name__ == '__main__':
     for epoch in range(0, epoch_n):
         # time per epoch
         start_time = time.time()
-
         # 誤差 初期値
         loss_sum = 0
         # 精度
@@ -111,7 +96,7 @@ if __name__ == '__main__':
 
         # バッチ単位での学習
         for i in range(0, train_size, batch_size):
-            # x: データ, t: 教師
+            # x: データ, t: ラベル
             # バッチ作成
             # インデックスが要素数をオーバーした場合の処理
             x = Variable(x_train[perm[i:(i+batch_size) if (i+batch_size) < train_size else train_size]])
@@ -133,13 +118,16 @@ if __name__ == '__main__':
         # バッチ単位でのテスト
         # エポックごとにテストデータを用いて評価を行う(もちろん誤差逆伝播は行わない)
         for i in range(0, test_size, batch_size):
-            # x: データ, t: 教師
+            # x: データ, t: ラベル
             # バッチ作成
             # インデックスが要素数をオーバーした場合の処理
             x = Variable(x_test[i:(i+batch_size) if (i+batch_size) < test_size else test_size])
             t = Variable(t_test[i:(i+batch_size) if (i+batch_size) < test_size else test_size])
-            # y: 予測(学習)
-            y = model(x, train=False)
+
+            # test mode
+            with chainer.using_config('train', False):
+                y = model(x)
+
             # 精度を計算
             acc = F.accuracy(y, t)
             acc_sum += float(acc.data) * len(y)
