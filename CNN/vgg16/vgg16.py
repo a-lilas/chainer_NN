@@ -21,13 +21,13 @@ class BatchConv(Chain):
     # Convolution2D + BatchNormalization
     def __init__(self, in_ch, out_ch, ksize, stride, pad):
         super(BatchConv, self).__init__(
-            conv=L.Convolution2D(None, out_ch, ksize, stride, pad)
+            conv=L.Convolution2D(in_ch, out_ch, ksize, stride, pad),
             bn=L.BatchNormalization(out_ch)
         )
 
     def __call__(self, x):
         h = self.conv(x)
-        h = self.bn(x)
+        h = self.bn(h)
         return x
 
 
@@ -36,16 +36,16 @@ class MyVGG16(Chain):
     # http://qiita.com/dsanno/items/ad84f078520f9c9c3ed1
     def __init__(self, input_size):
         super(MyVGG16, self).__init__(
-            bnconv1_1=BatchConv(None, 64, 3, stride=1, pad=1)
-            bnconv1_2=BatchConv(None, 64, 3, stride=1, pad=1)
-            bnconv2_1=BatchConv(None, 128, 3, stride=1, pad=1)
-            bnconv2_2=BatchConv(None, 128, 3, stride=1, pad=1)
-            bnconv3_1=BatchConv(None, 256, 3, stride=1, pad=1)
-            bnconv3_2=BatchConv(None, 256, 3, stride=1, pad=1)
-            bnconv3_3=BatchConv(None, 512, 3, stride=1, pad=1)
-            bnconv3_4=BatchConv(None, 512, 3, stride=1, pad=1)
-            fc4=L.Linear(None, 4096)
-            fc5=L.Linear(None, 1024)
+            bnconv1_1=BatchConv(None, 64, 3, stride=1, pad=1),
+            bnconv1_2=BatchConv(None, 64, 3, stride=1, pad=1),
+            bnconv2_1=BatchConv(None, 128, 3, stride=1, pad=1),
+            bnconv2_2=BatchConv(None, 128, 3, stride=1, pad=1),
+            bnconv3_1=BatchConv(None, 256, 3, stride=1, pad=1),
+            bnconv3_2=BatchConv(None, 256, 3, stride=1, pad=1),
+            bnconv3_3=BatchConv(None, 512, 3, stride=1, pad=1),
+            bnconv3_4=BatchConv(None, 512, 3, stride=1, pad=1),
+            fc4=L.Linear(None, 4096),
+            fc5=L.Linear(None, 1024),
             fc6=L.Linear(None, 10)
             )
 
