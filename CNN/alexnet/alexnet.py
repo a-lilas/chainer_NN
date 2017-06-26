@@ -1,6 +1,6 @@
 # coding:utf-8
 '''
-AlexNetを用いたMNIST手書き文字識別
+AlexNetを用いたCIFAR10物体認識
 '''
 import numpy as np
 import sys
@@ -35,13 +35,15 @@ class Alexnet(Chain):
             # None: 出力ノード数の自動推定
             # Like AlexNet
             conv1=L.Convolution2D(None, 64, 5, stride=1),
+            bn1=L.BatchNormalization(64)
             conv2=L.Convolution2D(None, 128, 5, stride=1, pad=1),
+            bn2=L.BatchNormalization(128)
             conv3=L.Convolution2D(None, 192, 3, stride=1, pad=1),
             conv4=L.Convolution2D(None, 192, 3, stride=1, pad=1),
             conv5=L.Convolution2D(None, 128, 3, stride=1, pad=1),
             fc6=L.Linear(None, 1024),
             fc7=L.Linear(None, 512),
-            fc8=L.Linear(None, 10)
+            fc8=L.Linear(None, 10),
             )
 
     def __call__(self, x, train=True):
@@ -50,16 +52,19 @@ class Alexnet(Chain):
         # ある1つのチャンネルについて画素全体で正規化する
         # LRN: ? (Alexnetはこっち)
         # ある画素(局所領域)について，多チャンネル全体で正規化する
+        # BatchNormalization との違いは？
         # 本の"norm"と"pool"の順番ってこれでいいの？逆では？
 
         ######################################
         h = self.conv1(x)
-        h = F.local_response_normalization(h)
+        # h = F.local_response_normalization(h)
+        h = self.bn1(h)
         h = F.relu(h)
         h = F.max_pooling_2d(h, 3, stride=2)
         ######################################
         h = self.conv2(h)
-        h = F.local_response_normalization(h)
+        # h = F.local_response_normalization(h)
+        h = self.bn2(h)
         h = F.relu(h)
         h = F.max_pooling_2d(h, 3, stride=2)
         ######################################
@@ -185,9 +190,9 @@ if __name__ == '__main__':
             with chainer.using_config('train', False):
                 y = model(x)
 
-            # 識別率を計算
-            acc = F.accuracy(y, t)
-            acc_sum_test += float(acc.data) * len(y)
+                # 識別率を計算
+                acc = F.accuracy(y, t)
+                acc_sum_test += float(acc.data) * len(y)
 
         # 訓練誤差, 識別率, 学習時間
         print('epoch: {}'.format(epoch))
