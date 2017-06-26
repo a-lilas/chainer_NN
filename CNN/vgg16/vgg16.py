@@ -35,6 +35,7 @@ class MyVGG16(Chain):
     # Like VGG16 for CIFAR-10 (+Batch Normalization)
     # http://qiita.com/dsanno/items/ad84f078520f9c9c3ed1
     def __init__(self, input_size):
+        # CIFAR-10に対してはノード数などを再考する必要あり
         super(MyVGG16, self).__init__(
             bnconv1_1=BatchConv(None, 64, 3, stride=1, pad=1),
             bnconv1_2=BatchConv(None, 64, 3, stride=1, pad=1),
@@ -56,14 +57,14 @@ class MyVGG16(Chain):
         h = self.bnconv1_2(h)
         h = F.relu(h)
         h = F.max_pooling_2d(h, 2)
-        h = F.dropout(h, 0.25)
+        # h = F.dropout(h, 0.25)
         ######################################
         h = self.bnconv2_1(h)
         h = F.relu(h)
         h = self.bnconv2_2(h)
         h = F.relu(h)
         h = F.max_pooling_2d(h, 2)
-        h = F.dropout(h, 0.25)
+        # h = F.dropout(h, 0.25)
         ######################################
         h = self.bnconv3_1(h)
         h = F.relu(h)
@@ -74,15 +75,15 @@ class MyVGG16(Chain):
         h = self.bnconv3_4(h)
         h = F.relu(h)
         h = F.max_pooling_2d(h, 2)
-        h = F.dropout(h, 0.25)
+        h = F.dropout(h)
         ######################################
         h = self.fc4(h)
         h = F.relu(h)
-        h = F.dropout(h, 0.25)
+        h = F.dropout(h)
         ######################################
         h = self.fc5(h)
         h = F.relu(h)
-        h = F.dropout(h, 0.25)
+        # h = F.dropout(h, 0.25)
         ######################################
         y = self.fc6(h)
         ######################################
