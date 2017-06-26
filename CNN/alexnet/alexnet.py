@@ -18,7 +18,7 @@ import util
 
 
 class Alexnet(Chain):
-    # Like Alexnet for MNIST
+    # Like Alexnet for CIFAR-10
     def __init__(self, input_size):
         '''
         AlexNet
