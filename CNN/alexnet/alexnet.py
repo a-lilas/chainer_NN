@@ -35,15 +35,15 @@ class Alexnet(Chain):
             # None: 出力ノード数の自動推定
             # Like AlexNet
             conv1=L.Convolution2D(None, 64, 5, stride=1),
-            bn1=L.BatchNormalization(64)
+            bn1=L.BatchNormalization(64),
             conv2=L.Convolution2D(None, 128, 5, stride=1, pad=1),
-            bn2=L.BatchNormalization(128)
+            bn2=L.BatchNormalization(128),
             conv3=L.Convolution2D(None, 192, 3, stride=1, pad=1),
             conv4=L.Convolution2D(None, 192, 3, stride=1, pad=1),
             conv5=L.Convolution2D(None, 128, 3, stride=1, pad=1),
             fc6=L.Linear(None, 1024),
             fc7=L.Linear(None, 512),
-            fc8=L.Linear(None, 10),
+            fc8=L.Linear(None, 10)
             )
 
     def __call__(self, x, train=True):
