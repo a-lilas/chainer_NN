@@ -111,9 +111,9 @@ if __name__ == '__main__':
     # テストデータ数
     test_size = len(x_test)
     # エポック数
-    epoch_n = 100
+    epoch_n = 300
     # バッチサイズ
-    batch_size = 64
+    batch_size = 128
     # for plot
     loss_list = []
     acc_sum_test_list = []
