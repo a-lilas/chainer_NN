@@ -111,7 +111,7 @@ if __name__ == '__main__':
     # テストデータ数
     test_size = len(x_test)
     # エポック数
-    epoch_n = 300
+    epoch_n = 50
     # バッチサイズ
     batch_size = 128
     # for plot
@@ -217,13 +217,16 @@ if __name__ == '__main__':
     plt.title('Softmax cross entropy')
     xlabels = [0, 20, 40, 60, 80, 100]
     plt.xticks(xlabels, xlabels)
-    plt.show()
+    plt.savefig('softmax_cross_entropy.png')
+    # plt.show()
+    plt.cla()
     plt.plot(x, acc_sum_train_list, color='red', label='train accuracy')
     plt.plot(x, acc_sum_test_list, color='blue', label='test accuracy')
     plt.title('Accuracy')
     plt.legend(loc='lower right')
     plt.xticks(xlabels, xlabels)
-    plt.show()
+    plt.savefig('accuracy.png')
+    # plt.show()
 
     np.save('AlexNet_loss.npy', loss_list)
     np.save('AlexNet_acc_train.npy', acc_sum_train_list)
