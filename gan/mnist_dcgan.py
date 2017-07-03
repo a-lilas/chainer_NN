@@ -22,7 +22,7 @@ class Generator(Chain):
         super(Generator, self).__init__(
             # チャンネル数は元論文の半分
             fc0=L.Linear(None, 4*4*512),
-            bn1=L.BatchNormalization(512),
+            bn1=L.BatchNormalization(4*4*512),
             # 4 -> 8
             deconv2=L.Deconvolution2D(512, 256, 4, stride=2, pad=1),
             bn3=L.BatchNormalization(256),
@@ -39,6 +39,7 @@ class Generator(Chain):
 
     def __call__(self, z):
         h = F.relu(self.bn1(self.fc0(z)))
+        h = F.reshape(h, (z.data.shape[0], 512, 4, 4))
         h = F.relu(self.bn3(self.deconv2(h)))
         h = F.relu(self.bn5(self.deconv4(h)))
         h = F.relu(self.bn7(self.deconv6(h)))
@@ -71,9 +72,9 @@ class Discriminator(Chain):
     def __call__(self, x):
         # slope = 0.2 (default)
         h = F.leaky_relu(self.conv1(x))
-        h = F.leaky_relu(self.bn3(self.conv2(x)))
-        h = F.leaky_relu(self.bn5(self.conv4(x)))
-        h = F.leaky_relu(self.bn7(self.conv6(x)))
+        h = F.leaky_relu(self.bn3(self.conv2(h)))
+        h = F.leaky_relu(self.bn5(self.conv4(h)))
+        h = F.leaky_relu(self.bn7(self.conv6(h)))
         y = self.fc8(h)
 
         return y
@@ -97,7 +98,7 @@ if __name__ == '__main__':
     # エポック数
     epoch_n = 100
     # バッチサイズ
-    batch_size = 64
+    batch_size = 100
     # ノイズZの次元数
     z_dim = 100
 
@@ -108,7 +109,8 @@ if __name__ == '__main__':
     # to GPU
     if gpu_fg >= 0:
         cuda.get_device(gpu_fg).use()
-        model.to_gpu()
+        gen.to_gpu()
+        dis.to_gpu()
 
     # optimizer
     o_gen = optimizers.Adam(alpha=0.0002, beta1=0.5)
@@ -126,7 +128,7 @@ if __name__ == '__main__':
         perm = np.random.permutation(train_size)
 
         for i in range(0, train_size, batch_size):
-            print("train generator")
+            # print("train generator")
             # train generator
             # make noise z
             z = xp.random.uniform(-1, 1, (batch_size, z_dim), dtype=np.float32)
@@ -142,21 +144,21 @@ if __name__ == '__main__':
             L_gen = F.softmax_cross_entropy(y, Variable(xp.zeros(batch_size, dtype=np.int32)))
             L_dis = F.softmax_cross_entropy(y, Variable(xp.ones(batch_size, dtype=np.int32)))
 
-            print("train discriminator")
+            # print("train discriminator")
             # train discriminator
             # batch data (MNIST)
-            x = Variable(xp.asarray(x_train[perm[i:(i+batch_size) if (i+batch_size) < train_size else train_size]]))
+            x = Variable(xp.asarray(xp.reshape(x_train[perm[i:(i+batch_size) if (i+batch_size) < train_size else train_size]], (batch_size, 1, 28, 28))))
             t = Variable(xp.asarray(t_train[perm[i:(i+batch_size) if (i+batch_size) < train_size else train_size]]))
             # 全てデータセット中のデータで学習させる
             y = dis(x)
             # 全てデータセット中のデータなので、識別器の結果が全て0だとOK
             L_dis += F.softmax_cross_entropy(y, Variable(xp.zeros(batch_size, dtype=np.int32)))
             
-            o_gen.zero_grads()
+            gen.zerograds()
             L_gen.backward()
             o_gen.update()
             
-            o_dis.zero_grads()
+            dis.zerograds()
             L_dis.backward()
             o_dis.update()
 
