@@ -15,6 +15,8 @@ import chainer.functions as F
 import chainer.links as L
 from chainer.datasets import get_mnist
 import util
+from pycrayon import CrayonClient
+import time
 
 
 class Generator(Chain):
@@ -89,6 +91,24 @@ if __name__ == '__main__':
     if gpu_fg >= 0:
         cuda.check_cuda_available()
     xp = cuda.cupy if gpu_fg >= 0 else np
+
+    # pycrayon 初期化
+    cc = CrayonClient(hostname="localhost", port=8889)
+    # delete this experiment from the server
+    try:
+        cc.remove_experiment("MNIST_DCGAN_GEN")
+        cc.remove_experiment("MNIST_DCGAN_DIS")
+    except:
+        pass
+
+    # create a new experiment
+    try:
+        tb_gen = cc.create_experiment("MNIST_DCGAN_GEN")
+        tb_dis = cc.create_experiment("MNIST_DCGAN_DIS")
+    except:
+        tb_gen = cc.open_experiment("MNIST_DCGAN_GEN")
+        tb_dis = cc.open_experiment("MNIST_DCGAN_DIS")
+        
 
     # Training Data
     train, test = chainer.datasets.get_mnist()
@@ -194,6 +214,9 @@ if __name__ == '__main__':
         print('sigmoid cross entropy (dis): {}'.format(sum_L_dis / train_size))
         print('time per epoch: {} [sec]'.format(time.time() - start_time))
         print(' - - - - - - - - - ')
+
+        tb_dis.add_scalar_value("sigmoid cross entropy", sum_L_dis/train_size)
+        tb_gen.add_scalar_value("sigmoid cross entropy", sum_L_gen/train_size)
 
     # save the model
     gen.to_cpu()
