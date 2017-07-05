@@ -93,17 +93,18 @@ if __name__ == '__main__':
     # Training Data
     train, test = chainer.datasets.get_mnist()
     x_train, t_train = train._datasets
+    x_train = (x_train - 0.5) / 0.5
     x_test, t_test = test._datasets
     # 学習データ数
     train_size = len(x_train)
     # テストデータ数
     test_size = len(x_test)
     # エポック数
-    epoch_n = 100
+    epoch_n = 20
     # バッチサイズ
-    batch_size = 100
+    batch_size = 50
     # ノイズZの次元数
-    z_dim = 100
+    z_dim = 75
 
     # model
     gen = Generator()
@@ -117,7 +118,7 @@ if __name__ == '__main__':
 
     # optimizer
     o_gen = optimizers.Adam(alpha=0.0002, beta1=0.5)
-    o_dis = optimizers.Adam(alpha=0.0002, beta1=0.5)
+    o_dis = optimizers.Adam(alpha=0.0001, beta1=0.2)
     o_gen.setup(gen)
     o_dis.setup(dis)
 #    o_gen.add_hook(chainer.optimizer.WeightDecay(0.00001))
@@ -152,6 +153,8 @@ if __name__ == '__main__':
             # batch data (MNIST)
             x = Variable(xp.asarray(xp.reshape(x_train[perm[i:(i+batch_size) if (i+batch_size) < train_size else train_size]], (batch_size, 1, 28, 28))))
             t = Variable(xp.asarray(t_train[perm[i:(i+batch_size) if (i+batch_size) < train_size else train_size]]))
+#            print(x.data[0], np.shape(x.data[0]), np.mean(x.data[0]), np,max(x.data[0]))
+#            exit()
             # 全てデータセット中のデータで学習させる
             y = dis(x)
             # 全てデータセット中のデータなので、識別器の結果が全て0だとOK
@@ -168,13 +171,22 @@ if __name__ == '__main__':
             sum_L_gen += L_gen.data * batch_size
             sum_L_dis += L_dis.data * batch_size
 
-        if epoch % 10 == 0:
+        if epoch % 1 == 0:
             # save the image
-            z = xp.random.uniform(-1, 1, (batch_size, 10), dtype=np.float32)
+            z = xp.random.uniform(-1, 1, (25, z_dim), dtype=np.float32)
             z = Variable(z)
             x = gen(z)
-            print(x[0])
-            
+
+            # need to send to CPU from GPU            
+            # x = cuda.to_cpu(x.data.astype(int))
+            x = cuda.to_cpu(x.data)
+            x = np.reshape(x, (-1, 28, 28))
+            for i in range(25):
+                print(x[i, 0, 0:5], np.mean(x[i]))
+                plt.subplot(5, 5, i+1)
+                plt.axis('off')
+                plt.imshow(x[i], cmap='gray')
+            plt.savefig("epoch{}.png".format(epoch))
 
         print('epoch: {}'.format(epoch))
         # 訓練誤差, 正解率, 学習時間
@@ -182,3 +194,8 @@ if __name__ == '__main__':
         print('sigmoid cross entropy (dis): {}'.format(sum_L_dis / train_size))
         print('time per epoch: {} [sec]'.format(time.time() - start_time))
         print(' - - - - - - - - - ')
+
+    # save the model
+    gen.to_cpu()
+    _pickle.dump(gen, open('generator.pkl', 'wb'), -1)
+
