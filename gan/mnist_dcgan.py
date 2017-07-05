@@ -72,10 +72,10 @@ class Discriminator(Chain):
     def __call__(self, x):
         # slope = 0.2 (default)
         h = F.leaky_relu(self.conv1(x))
-#        h = F.leaky_relu(self.bn3(self.conv2(h)))
         h = F.leaky_relu(self.conv2(h))
         h = F.leaky_relu(self.conv4(h))
         h = F.leaky_relu(self.conv6(h))
+#        h = F.leaky_relu(self.bn3(self.conv2(h)))
 #        h = F.leaky_relu(self.bn5(self.conv4(h)))
 #        h = F.leaky_relu(self.bn7(self.conv6(h)))
         y = self.fc8(h)
@@ -168,9 +168,17 @@ if __name__ == '__main__':
             sum_L_gen += L_gen.data * batch_size
             sum_L_dis += L_dis.data * batch_size
 
+        if epoch % 10 == 0:
+            # save the image
+            z = xp.random.uniform(-1, 1, (batch_size, 10), dtype=np.float32)
+            z = Variable(z)
+            x = gen(z)
+            print(x[0])
+            
+
         print('epoch: {}'.format(epoch))
         # 訓練誤差, 正解率, 学習時間
-        print('softmax cross entropy (gen): {}'.format(sum_L_gen / train_size))
-        print('softmax cross entropy (dis): {}'.format(sum_L_dis / train_size))
+        print('sigmoid cross entropy (gen): {}'.format(sum_L_gen / train_size))
+        print('sigmoid cross entropy (dis): {}'.format(sum_L_dis / train_size))
         print('time per epoch: {} [sec]'.format(time.time() - start_time))
         print(' - - - - - - - - - ')
