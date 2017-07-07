@@ -93,7 +93,7 @@ if __name__ == '__main__':
     xp = cuda.cupy if gpu_fg >= 0 else np
 
     # pycrayon 初期化
-    cc = CrayonClient(hostname="localhost", port=8889)
+    cc = CrayonClient(hostname="192.168.1.201", port=8889)
     # delete this experiment from the server
     try:
         cc.remove_experiment("MNIST_DCGAN_GEN")
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     # テストデータ数
     test_size = len(x_test)
     # エポック数
-    epoch_n = 20
+    epoch_n = 50
     # バッチサイズ
     batch_size = 50
     # ノイズZの次元数
@@ -215,10 +215,13 @@ if __name__ == '__main__':
         print('time per epoch: {} [sec]'.format(time.time() - start_time))
         print(' - - - - - - - - - ')
 
-        tb_dis.add_scalar_value("sigmoid cross entropy", sum_L_dis/train_size)
-        tb_gen.add_scalar_value("sigmoid cross entropy", sum_L_gen/train_size)
+        tb_dis.add_scalar_value("sigmoid cross entropy", float(sum_L_dis/train_size))
+        tb_gen.add_scalar_value("sigmoid cross entropy", float(sum_L_gen/train_size))
 
     # save the model
     gen.to_cpu()
     _pickle.dump(gen, open('generator.pkl', 'wb'), -1)
+    # save the TensorBoard
+    tb_dis.to_zip()
+    tb_gen.to_zip()
 
