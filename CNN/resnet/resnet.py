@@ -126,7 +126,7 @@ if __name__ == '__main__':
     # テストデータ数
     test_size = len(x_test)
     # エポック数
-    epoch_n = 150
+    epoch_n = 400
     # バッチサイズ
     batch_size = 128
     # for plot
