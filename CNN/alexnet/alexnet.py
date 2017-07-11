@@ -105,8 +105,8 @@ if __name__ == '__main__':
     cc = CrayonClient(hostname="192.168.1.198", port=8889)
     # delete this experiment from the server
     try:
-        cc.remove_experiment("AlexNet train")
-        cc.remove_experiment("AlexNet test")
+        cc.remove_experiment("AlexNet train (Adam)")
+        cc.remove_experiment("AlexNet test (Adam)")
     except:
         pass
 
@@ -143,6 +143,10 @@ if __name__ == '__main__':
     x_test = np.asarray(np.reshape(x_test, (test_size, 3, 32, 32)))
     t_train = np.asarray(t_train)
     t_test = np.asarray(t_test)
+    
+    # pre-process of images
+    x_train = (x_train - 0.5) / 0.5
+    x_test = (x_test - 0.5) / 0.5
 
     # model
     model = Alexnet(input_size=input_size)
@@ -168,6 +172,10 @@ if __name__ == '__main__':
         acc_sum_test = 0
         # 学習時のバッチのシャッフル(only np)
         perm = np.asarray(np.random.permutation(train_size))
+
+        if epoch % 50 == 0:
+            optimizer.alpha = optimizer.alpha * 0.1
+
 
         # バッチ単位での学習
         for i in range(0, train_size, batch_size):

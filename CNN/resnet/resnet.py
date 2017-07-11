@@ -25,8 +25,8 @@ class ResBlock(Chain):
         super(ResBlock, self).__init__(
             conv1=L.Convolution2D(input_size, output_size, 3, stride=stride, pad=1),
             bn2=L.BatchNormalization(output_size),
-            conv3=L.Convolution2D(output_size, output_size, 3, stride=stride, pad=1),
-            bn4=L.Convolution2D(output_size)
+            conv3=L.Convolution2D(output_size, output_size, 3, stride=1, pad=1),
+            bn4=L.BatchNormalization(output_size)
         )
     
     def __call__(self, x):
@@ -36,45 +36,57 @@ class ResBlock(Chain):
         h = self.conv3(h)
         h = self.bn4(h)
         # xとhのサイズが違った場合の処理
-        if x.data.shape[2:] != h.data.shape[2:]:
-            x = F.average_pooling_2d(x, 1, 2)
-        if x.data.shape[1] != h.data.shape[1]:
-            x = F.concat((x, x * 0))
-        h = F.relu(h+x)
+        if x.data.shape != h.data.shape:
+            n, c, hh, ww = x.data.shape
+            pad_c = h.data.shape[1] - c
+            p = xp.zeros((n, pad_c, hh, ww), dtype=xp.float32)
+            p = Variable(p)
+            x = F.concat((p, x))
+            if x.data.shape[2:] != h.data.shape[2:]:
+                x = F.average_pooling_2d(x, 1, 2)
+        y = F.relu(h+x)
+        return y
 
 
 class Resnet(Chain):
     # Like Resnet for CIFAR-10
     # n: the number of ResBlock
     def __init__(self, block, n=18):
-        super(Resnet, self).__init__()
+        super(Resnet, self).__init__(
+            conv=L.Convolution2D(None, 16, 3, stride=1, pad=0),
+            bn=L.BatchNormalization(16),
+            fc=L.Linear(None, 10)
+        )
         # None: 出力ノード数の自動推定
         # Like ResNet
-        conv1 = L.Convolution2D(None, 16, 3, stride=1, pad=0)
-        bn1 = L.BatchNormalization(16)
-        res = []
+        # conv1 = L.Convolution2D(None, 16, 3, stride=1, pad=0)
+        # bn1 = L.BatchNormalization(16)
+#        self.conv1 = L.Convolution2D(None, 16, 3, stride=1, pad=0)
+#        self.bn1 = L.BatchNormalization(16)
+#        self.fc1 = L.Linear(None, 10) 
+        self.res = []
         for i in range(n):
-            res.append(block(16, 16))
-        for i in range(n):
-            if i == 0:
-                res.append(block(16, 32, 2))
-            else:
-                res.append(block(32, 32))
-        
+            self.res.append(block(16, 16))
         for i in range(n):
             if i == 0:
-                res.append(block(32, 64, 2))
+                self.res.append(block(16, 32, 2))
             else:
-                res.append(block(64, 64))
-        fc1 = L.Linear(None, 10)
+                self.res.append(block(32, 32))
+        for i in range(n):
+            if i == 0:
+                self.res.append(block(32, 64, 2))
+            else:
+                self.res.append(block(64, 64))
+        # fc1 = L.Linear(None, 10)
+        for f in self.res:
+            f.to_gpu()
 
-    def __call__(self, x, train=True):
-        h = self.conv1(x)
-        h = self.bn1(h)
-        for f in res:
+    def __call__(self, x):
+        h = self.conv(x)
+        h = self.bn(h)
+        for f in self.res:
             h = f(h)
-        h = F.
-        y = self.fc1(h)
+        y = self.fc(h)
         return y
 
 
@@ -86,7 +98,7 @@ if __name__ == '__main__':
     xp = cuda.cupy if gpu_fg >= 0 else np
 
     # pycrayon 初期化
-    cc = CrayonClient(hostname="", port=8889)
+    cc = CrayonClient(hostname="192.168.1.90", port=8889)
     # delete this experiment from the server
     try:
         cc.remove_experiment("ResNet train")
@@ -128,12 +140,16 @@ if __name__ == '__main__':
     t_train = np.asarray(t_train)
     t_test = np.asarray(t_test)
 
+    # pre-process of images
+    x_train = (x_train - 0.5) / 0.5
+    x_test = (x_test - 0.5) / 0.5
+
     # model
     model = Resnet(block=ResBlock, n=18)
     # to GPU
     if gpu_fg >= 0:
         cuda.get_device(gpu_fg).use()
-        model.to_gpu()
+        model.to_gpu(gpu_fg)
 
     # optimizer
     optimizer = optimizers.Adam()
@@ -151,6 +167,9 @@ if __name__ == '__main__':
         acc_sum_test = 0
         # 学習時のバッチのシャッフル(only np)
         perm = np.asarray(np.random.permutation(train_size))
+
+        if epoch % 50 == 0:
+            optimizer.alpha = optimizer.alpha * 0.1
 
         # バッチ単位での学習
         for i in range(0, train_size, batch_size):
@@ -206,9 +225,9 @@ if __name__ == '__main__':
         print(' - - - - - - - - - ')
 
         # send to pycrayon server
-        tb_res_train.add_scalar_value("softmax cross entropy resNet", loss_sum/train_size)
-        tb_res_train.add_scalar_value("Accuracy", acc_sum_train/train_size)
-        tb_res_test.add_scalar_value("Accuracy", acc_sum_test/test_size)
+        tb_res_train.add_scalar_value("softmax cross entropy -ResNet", float(loss_sum/train_size))
+        tb_res_train.add_scalar_value("Accuracy -ResNet", float(acc_sum_train/train_size))
+        tb_res_test.add_scalar_value("Accuracy -ResNet", float(acc_sum_test/test_size))
 
         # append list to plot
         loss_list.append(float(loss_sum/train_size))
