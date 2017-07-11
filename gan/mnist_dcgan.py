@@ -93,7 +93,11 @@ if __name__ == '__main__':
     xp = cuda.cupy if gpu_fg >= 0 else np
 
     # pycrayon 初期化
+<<<<<<< HEAD
     cc = CrayonClient(hostname="192.168.1.201", port=8889)
+=======
+    cc = CrayonClient(hostname="", port=8889)
+>>>>>>> d6f052dba3a3f893fd80497288d9412d8cc1c097
     # delete this experiment from the server
     try:
         cc.remove_experiment("MNIST_DCGAN_GEN")

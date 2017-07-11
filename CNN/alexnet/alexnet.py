@@ -15,6 +15,8 @@ import chainer.functions as F
 import chainer.links as L
 from chainer.datasets import get_cifar10
 import util
+from pycrayon import CrayonClient
+import time
 
 
 class Alexnet(Chain):
@@ -99,6 +101,23 @@ if __name__ == '__main__':
         cuda.check_cuda_available()
     xp = cuda.cupy if gpu_fg >= 0 else np
 
+    # pycrayon 初期化
+    cc = CrayonClient(hostname="192.168.1.198", port=8889)
+    # delete this experiment from the server
+    try:
+        cc.remove_experiment("AlexNet train")
+        cc.remove_experiment("AlexNet test")
+    except:
+        pass
+
+    # create a new experiment
+    try:
+        tb_alex_train = cc.create_experiment("AlexNet train (Adam)")
+        tb_alex_test = cc.create_experiment("AlexNet test (Adam)")
+    except:
+        tb_alex_train = cc.open_experiment("AlexNet train (Adam)")
+        tb_alex_test = cc.open_experiment("AlexNet test (Adam)")
+
     # x_train: 32*32*3
     train, test = get_cifar10()
     x_train, t_train = train._datasets
@@ -111,7 +130,7 @@ if __name__ == '__main__':
     # テストデータ数
     test_size = len(x_test)
     # エポック数
-    epoch_n = 50
+    epoch_n = 150
     # バッチサイズ
     batch_size = 128
     # for plot
@@ -134,6 +153,7 @@ if __name__ == '__main__':
 
     # optimizer
     optimizer = optimizers.Adam()
+    # optimizer = optimizers.SGD()
     optimizer.setup(model)
 
     # Training Loop
@@ -202,6 +222,11 @@ if __name__ == '__main__':
         print('time per epoch: {} [sec]'.format(time.time() - start_time))
         print(' - - - - - - - - - ')
 
+        # send to pycrayon server
+        tb_alex_train.add_scalar_value("softmax cross entropy -AlexNet", float(loss_sum/train_size))
+        tb_alex_train.add_scalar_value("Accuracy -AlexNet", float(acc_sum_train/train_size))
+        tb_alex_test.add_scalar_value("Accuracy -AlexNet", float(acc_sum_test/test_size))
+
         # append list to plot
         loss_list.append(float(loss_sum/train_size))
         acc_sum_train_list.append(float(acc_sum_train/train_size))
@@ -211,23 +236,10 @@ if __name__ == '__main__':
     model.to_cpu()
     _pickle.dump(model, open("AlexNet.pkl", "wb"), -1)
 
-    # plot loss/acc
-    x = np.arange(0, epoch_n, 1)
-    plt.plot(x, loss_list)
-    plt.title('Softmax cross entropy')
-    xlabels = [0, 20, 40, 60, 80, 100]
-    plt.xticks(xlabels, xlabels)
-    plt.savefig('softmax_cross_entropy.png')
-    # plt.show()
-    plt.cla()
-    plt.plot(x, acc_sum_train_list, color='red', label='train accuracy')
-    plt.plot(x, acc_sum_test_list, color='blue', label='test accuracy')
-    plt.title('Accuracy')
-    plt.legend(loc='lower right')
-    plt.xticks(xlabels, xlabels)
-    plt.savefig('accuracy.png')
-    # plt.show()
-
     np.save('AlexNet_loss.npy', loss_list)
     np.save('AlexNet_acc_train.npy', acc_sum_train_list)
     np.save('AlexNet_acc_test.npy', acc_sum_test_list)
+
+    # save the pycrayon data
+    tb_alex_train.to_zip()
+    tb_alex_test.to_zip()
